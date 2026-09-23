@@ -121,18 +121,18 @@ def test_parse_mmcli_modem():
 def test_route_commands_prefer_wifi_with_warm_standby():
     routes = RouteController("wlan0", "wwan0", "cellular", warm_standby=True)
     assert routes.commands_for(WIFI) == [
-        ["nmcli", "connection", "up", "cellular"],
         ["nmcli", "device", "modify", "wlan0", "ipv4.route-metric", "100"],
-        ["nmcli", "device", "modify", "wwan0", "ipv4.route-metric", "700"],
+        ["nmcli", "connection", "modify", "cellular", "ipv4.route-metric", "700"],
+        ["nmcli", "connection", "up", "cellular"],
     ]
 
 
 def test_route_commands_prefer_cellular():
     routes = RouteController("wlan0", "wwan0", "cellular", warm_standby=False)
     assert routes.commands_for(CELLULAR) == [
-        ["nmcli", "connection", "up", "cellular"],
         ["nmcli", "device", "modify", "wlan0", "ipv4.route-metric", "700"],
-        ["nmcli", "device", "modify", "wwan0", "ipv4.route-metric", "100"],
+        ["nmcli", "connection", "modify", "cellular", "ipv4.route-metric", "100"],
+        ["nmcli", "connection", "up", "cellular"],
     ]
     # Without warm standby the cellular connection is dropped when back on Wi-Fi
     assert routes.commands_for(WIFI)[-1] == ["nmcli", "connection", "down", "cellular"]
@@ -148,7 +148,7 @@ def test_route_apply_reports_failures_and_dry_run():
 
     def runner(args):
         calls.append(list(args))
-        return subprocess.CompletedProcess(args, 1 if "wwan0" in args else 0, "", "no such device")
+        return subprocess.CompletedProcess(args, 1 if "up" in args else 0, "", "no such connection")
 
     assert RouteController("wlan0", "wwan0", "cellular", runner=runner).apply(WIFI) is False
     assert len(calls) == 3

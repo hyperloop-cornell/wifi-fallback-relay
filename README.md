@@ -18,9 +18,12 @@ Every `CHECK_INTERVAL_SECONDS`:
      to cellular, if cellular works.
    - It returns to Wi-Fi once Wi-Fi has probed good for `WIFI_UP_STABLE_SECONDS`, or immediately if
      cellular fails while Wi-Fi works.
-3. When the preference changes, sets NetworkManager route metrics (lower wins):
-   `nmcli device modify <iface> ipv4.route-metric <n>`. Open sockets on the old link break and
-   applications reconnect over the new one; rpi-hub-server's uplink reconnects on its own.
+3. When the preference changes, sets NetworkManager route metrics (lower wins): Wi-Fi with
+   `nmcli device modify wlan0 ipv4.route-metric <n>`, cellular with
+   `nmcli connection modify <CELLULAR_CONNECTION> ipv4.route-metric <n>` followed by
+   `nmcli connection up` (for ModemManager modems NetworkManager's device is the control port,
+   not the `wwan0` IP interface). Open sockets on the old link break and applications reconnect
+   over the new one; rpi-hub-server's uplink reconnects on its own.
 4. Atomically writes `STATUS_FILE` (default `/run/hyperloop-uplink/status.json`), which
    rpi-hub-server includes in its health reports so the GUI can show Wi-Fi/cellular state.
 

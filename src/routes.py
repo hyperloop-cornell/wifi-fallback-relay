@@ -18,7 +18,13 @@ def _run(args: Sequence[str]) -> subprocess.CompletedProcess:
 class RouteController:
     """Lower route metric wins. Both links stay up (cellular as warm standby unless disabled);
     switching only changes which default route the kernel uses, so existing sockets on the old
-    link break and applications such as rpi-hub-server reconnect over the new one."""
+    link break and applications such as rpi-hub-server reconnect over the new one.
+
+    Wi-Fi is adjusted on its device (`nmcli device modify wlan0 ...`, applied immediately).
+    Cellular is adjusted on its connection profile and re-activated: for ModemManager modems the
+    NetworkManager device is the control port (e.g. cdc-wdm0), not the wwan0 IP interface, so
+    device-level commands against wwan0 would fail.
+    """
 
     def __init__(
         self,
@@ -43,15 +49,17 @@ class RouteController:
     def commands_for(self, preferred: str) -> List[List[str]]:
         wifi_metric = self.preferred_metric if preferred == "wifi" else self.fallback_metric
         cellular_metric = self.preferred_metric if preferred == "cellular" else self.fallback_metric
-        commands: List[List[str]] = []
-        if self.cellular_connection and (preferred == "cellular" or self.warm_standby):
-            commands.append(["nmcli", "connection", "up", self.cellular_connection])
-        commands.append(["nmcli", "device", "modify", self.wifi_interface, "ipv4.route-metric", str(wifi_metric)])
-        if self.cellular_connection and (preferred == "cellular" or self.warm_standby):
+        commands: List[List[str]] = [
+            ["nmcli", "device", "modify", self.wifi_interface, "ipv4.route-metric", str(wifi_metric)],
+        ]
+        if not self.cellular_connection:
+            return commands
+        if preferred == "cellular" or self.warm_standby:
             commands.append(
-                ["nmcli", "device", "modify", self.cellular_interface, "ipv4.route-metric", str(cellular_metric)]
+                ["nmcli", "connection", "modify", self.cellular_connection, "ipv4.route-metric", str(cellular_metric)]
             )
-        elif self.cellular_connection:
+            commands.append(["nmcli", "connection", "up", self.cellular_connection])
+        else:
             commands.append(["nmcli", "connection", "down", self.cellular_connection])
         return commands
 
