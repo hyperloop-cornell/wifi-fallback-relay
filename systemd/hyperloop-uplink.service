@@ -1,0 +1,21 @@
+[Unit]
+Description=Hyperloop uplink manager (Wi-Fi preferred, cellular fallback)
+Wants=network-online.target ModemManager.service
+After=network-online.target NetworkManager.service ModemManager.service
+
+[Service]
+Type=simple
+# Root is needed to bind probes to an interface and to change route metrics
+User=root
+WorkingDirectory=/opt/hyperloop-uplink
+EnvironmentFile=/etc/hyperloop-uplink/config.env
+ExecStart=/opt/hyperloop-uplink/.venv/bin/python -m src.uplink_manager
+Restart=always
+RestartSec=5
+# Creates /run/hyperloop-uplink (world-readable) for the status file rpi-hub-server reads
+RuntimeDirectory=hyperloop-uplink
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
+
+[Install]
+WantedBy=multi-user.target
